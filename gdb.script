@@ -1,0 +1,45 @@
+define showSock
+set $addr=(struct tcp_sock*)$arg0
+printf "out=%d,retry=%d,lost=%d,sack=%d,fack=%d,cwnd=%d,retrans_high=%ld,snd_una=%ld,snd_nxt=%ld,rcv_nxt=%ld,outofqueue_count=%u\n",$addr->packets_out,$addr->retrans_out,$addr->lost_out,$addr->sacked_out,$addr->fackets_out,$addr->snd_cwnd,$addr->retransmit_high,$addr->snd_una,$addr->snd_nxt,$addr->rcv_nxt,$addr->out_of_order_queue.qlen
+set $icsk=(struct inet_connection_sock*)$arg0
+printf "icsk_ca_state=%d,icsk_pending=%x,icsk_retransmits=%d\n",$icsk->icsk_ca_state,$icsk->icsk_pending,$icsk->icsk_retransmits
+end
+
+#<addr> <count> <1/2: go through sk_send_head with next/prev, 0: go through sk_write_queue>
+define showPacket
+set $addr=(struct sock*)$arg0
+set $queue=&($addr->sk_write_queue)
+set $count=$arg1
+set $which=$arg2
+if ($which == 0)
+	set $skb=$queue->next
+	set $qend=$queue
+else
+	set $skb=$addr->sk_send_head
+	set $qend=0
+end
+while (($count > 0) && ((void*)$skb != (void*)$qend))
+	set $count=$count-1
+	set $skbcb=(struct tcp_skb_cb *)&($skb->cb[0])
+	printf "snd_head=0x%x,skb=0x%x,sack=0x%x,seq=%ld,end_seq=%ld,data_len=%ld\n",$addr->sk_send_head,$skb,$skbcb->sacked,$skbcb->seq,$skbcb->end_seq,$skb->data_len
+	if ($which == 2)
+		set $skb=$skb->prev
+	else
+		set $skb=$skb->next
+	end
+end
+end
+
+define showOFOQueue
+set $addr=(struct tcp_sock*)$arg0
+set $queue=&($addr->out_of_order_queue)
+set $count=$arg1
+set $skb=$queue->next
+while (($count>0) && ($skb!=$queue))
+	set $count=$count-1
+	set $skbcb=(struct tcp_skb_cb *)&($skb->cb[0])
+	printf "skb=0x%x,sack=0x%x,seq=%ld,end_seq=%ld,data_len=%ld\n",$skb,$skbcb->sacked,$skbcb->seq,$skbcb->end_seq,$skb->data_len
+	set $skb=$skb->next
+end
+end
+
