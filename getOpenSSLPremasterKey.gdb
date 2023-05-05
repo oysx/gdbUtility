@@ -11,7 +11,7 @@ def pm(ssl='s'):
 end
 
 set logging on
-set logging file /home/cyc/qtest.key
+set logging file /home/vi/premaster.key
 
 b ssl3_read_n
 command
